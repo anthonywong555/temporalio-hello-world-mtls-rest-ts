@@ -1,3 +1,3 @@
-export async function greet(name: string): Promise<string> {
-  return `Hello, ${name}!`;
+export async function echo(message: string): Promise<string> {
+  return `Echo: ${message}!`;
 }

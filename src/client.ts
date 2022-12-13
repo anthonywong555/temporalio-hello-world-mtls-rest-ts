@@ -1,25 +1,70 @@
+/**
+ * Imports
+ */
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
 import fs from 'fs';
-import * as dotenv from "dotenv";
-dotenv.config();
-
-// @@@SNIPSTART typescript-mtls-worker
 import { Connection, WorkflowClient } from '@temporalio/client';
 import { example } from './workflows';
+import { Example_Request, Example_Response } from "./types";
 
 /**
- * Schedule a Workflow connecting with mTLS, configuration is provided via environment variables.
- * Note that serverNameOverride and serverRootCACertificate are optional.
+ * Clients
  */
-async function run({
+const app = express();
+app.use(bodyParser.json());
+app.use(cors());
+
+const PORT = process.env.PORT ? process.env.PORT : '3000';
+
+const examplePostHandler = async(payload: Example_Request) => {
+  try {
+    const env = getEnv();
+    const {taskQueue} = env;
+    const client = await getTemporalClient(env);
+    const result = await client.execute(example, {
+      taskQueue,
+      workflowId: `my-business-id-${Date.now()}`,
+      args: [payload],
+    });
+    return result;
+  } catch (e) {
+    throw e;
+  }
+}
+
+/**
+ * Express Functions
+ */
+
+app.post('/example', async(request: any, response: any) => {
+  const {body} = request;
+
+  try {
+    const result = await examplePostHandler(body);
+    response.send(result);
+  } catch(e) {
+    console.error(e);
+    response.send(e);
+  }
+});
+
+app.listen(PORT, () => console.log(`Listening on ${PORT}.\nNode Environment is on ${process.env.NODE_ENV} mode.`));
+
+/**
+ * Temporal Functions
+ */
+
+const getTemporalClient = async ({
   address,
   namespace,
   clientCertPath,
   clientKeyPath,
   serverNameOverride,
-  serverRootCACertificatePath,
-  taskQueue,
-}: Env) {
-  // not needed if connecting to temporal cloud
+  serverRootCACertificatePath
+}: Env) => {
   let serverRootCACertificate: Buffer | undefined = undefined;
   if (serverRootCACertificatePath) {
     serverRootCACertificate = fs.readFileSync(serverRootCACertificatePath);
@@ -37,25 +82,8 @@ async function run({
     },
   });
   const client = new WorkflowClient({ connection, namespace });
-  // Run example workflow and await its completion
-  const result = await client.execute(example, {
-    taskQueue,
-    workflowId: `my-business-id-${Date.now()}`,
-    args: ['Temporal'],
-  });
-  console.log(result); // Hello, Temporal!
+  return client;
 }
-
-run(getEnv()).then(
-  () => process.exit(0),
-  (err) => {
-    console.error(err);
-    process.exit(1);
-  }
-);
-// @@@SNIPEND
-
-// Helpers for configuring the mTLS client and worker samples
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -64,6 +92,10 @@ function requiredEnv(name: string): string {
   }
   return value;
 }
+
+/**
+ * Types
+ */
 
 export interface Env {
   address: string;
