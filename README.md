@@ -1,4 +1,4 @@
-# temporalio-hello-world-mtls-ts
+# temporalio-hello-world-mtls-rest-ts
 
 This guide is the a fork of [Temporal Hello World MTLS](https://github.com/temporalio/samples-typescript/tree/main/hello-world-mtls).
 
